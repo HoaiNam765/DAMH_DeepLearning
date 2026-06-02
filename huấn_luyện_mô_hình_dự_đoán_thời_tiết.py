@@ -20,14 +20,11 @@ from tensorflow.keras import layers, models, regularizers
 from tensorflow.keras.preprocessing import image_dataset_from_directory
 from sklearn.metrics import classification_report, confusion_matrix
 
-# Kiểm tra GPU xem đã bật chưa
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
-# 1.1 Kết nối với Google Drive
 from google.colab import drive
 drive.mount('/content/drive')
 
-# 1.2 Giải nén file dataset từ Drive vào Colab
 zip_path = '/content/drive/MyDrive/dataset.zip'
 extract_path = '/content/dataset'
 
@@ -36,11 +33,8 @@ with zipfile.ZipFile(zip_path, 'r') as zip_ref:
     zip_ref.extractall(extract_path)
 print("Giải nén hoàn tất!")
 
-# Đường dẫn tới thư mục chứa các thư mục con của các lớp thời tiết
-# CHÚ Ý: Đảm bảo đường dẫn này trỏ đúng vào nơi chứa 11 folder (dew, rain, snow...)
-data_dir = '/content/dataset/dataset' # Thay đổi tùy thuộc vào cấu trúc file zip của bạn
+data_dir = '/content/dataset/dataset'
 
-# 1.3 Thiết lập thông số và Load Dataset bằng image_dataset_from_directory
 BATCH_SIZE = 32
 IMG_SIZE = (300, 300)
 
@@ -67,12 +61,10 @@ val_dataset = image_dataset_from_directory(
 class_names = train_dataset.class_names
 print("Các nhãn phân loại:", class_names)
 
-# Tối ưu hóa hiệu suất đọc dữ liệu
 AUTOTUNE = tf.data.AUTOTUNE
 train_dataset = train_dataset.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
 val_dataset = val_dataset.cache().prefetch(buffer_size=AUTOTUNE)
 
-# 2.1 Thống kê số lượng ảnh mỗi lớp
 class_counts = {}
 for class_name in class_names:
     class_path = os.path.join(data_dir, class_name)
@@ -86,7 +78,6 @@ plt.ylabel('Số lượng ảnh')
 plt.xticks(rotation=45)
 plt.show()
 
-# 2.2 Hiển thị 9 ảnh ngẫu nhiên từ tập train
 plt.figure(figsize=(10, 10))
 for images, labels in train_dataset.take(1):
     for i in range(9):
@@ -96,63 +87,48 @@ for images, labels in train_dataset.take(1):
         plt.axis("off")
 plt.show()
 
-# Tạo lớp Data Augmentation
-# Thêm RandomContrast để giúp mô hình phân biệt tốt hơn các điều kiện thời tiết
-# có màu sắc na ná nhau (như sương mù và bão cát, hoặc các loại băng tuyết).
 data_augmentation = tf.keras.Sequential([
     tf.keras.layers.RandomFlip("horizontal"), # Lật ngang
     tf.keras.layers.RandomRotation(0.2),      # Xoay góc 20%
     tf.keras.layers.RandomZoom(0.2),          # Phóng to/thu nhỏ
 ])
 
-# Xây dựng kiến trúc CNN
 model = models.Sequential([
     layers.Input(shape=(IMG_SIZE[0], IMG_SIZE[1], 3)),
 
-    # Đưa Data Augmentation vào
     data_augmentation,
     layers.Rescaling(1./255),
 
-    # Khối Convolution 1
     layers.Conv2D(32, (3, 3), padding='same'),
     layers.BatchNormalization(), # Thêm Batch Norm giúp huấn luyện ổn định và nhanh hơn
     layers.Activation('relu'),
     layers.MaxPooling2D(2, 2),
 
-    # Khối Convolution 2
     layers.Conv2D(64, (3, 3), padding='same'),
     layers.BatchNormalization(),
     layers.Activation('relu'),
     layers.MaxPooling2D(2, 2),
 
-    # Khối Convolution 3
     layers.Conv2D(128, (3, 3), padding='same'),
     layers.BatchNormalization(),
     layers.Activation('relu'),
     layers.MaxPooling2D(2, 2),
 
-    # Khối Convolution 4
     layers.Conv2D(256, (3, 3), padding='same'),
     layers.BatchNormalization(),
     layers.Activation('relu'),
     layers.MaxPooling2D(2, 2),
-    layers.Dropout(0.4), # Tăng Dropout nhẹ ở Convolutional features
+    layers.Dropout(0.4),
 
-    # Sử dụng GlobalAveragePooling2D thay cho Flatten
-    # Giúp giảm hàng triệu tham số dư thừa, chống Overfitting cực kỳ hiệu quả
     layers.GlobalAveragePooling2D(),
 
-    # Lớp Dense phân loại với L2 Regularization
     layers.Dense(512, activation='relu', kernel_regularizer=regularizers.l2(0.001)),
     layers.Dropout(0.5),
 
-    # Lớp Output
     layers.Dense(len(class_names), activation='softmax')
 ])
 
 model.summary()
-
-# 4.1 Biên dịch mô hình
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 num_classes = len(class_names)
@@ -160,17 +136,12 @@ model.compile(optimizer=optimizer,
               loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
 
-# 4. Thiết lập Callbacks thông minh hơn
 callbacks = [
-    # Tăng patience lên vì mô hình sâu hơn cần nhiều thời gian để hội tụ
     tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
     tf.keras.callbacks.ModelCheckpoint('best_weather_model.keras', save_best_only=True),
-    # Thêm ReduceLROnPlateau: Tự động giảm Learning Rate khi val_loss đi ngang,
-    # giúp mô hình "dò" được điểm tối ưu tốt hơn ở những epochs cuối.
     tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.3, patience=3, min_lr=1e-6, verbose=1)
 ]
 
-# 5. Huấn luyện mô hình
 EPOCHS = 50
 
 print("Bắt đầu huấn luyện...")
@@ -181,32 +152,22 @@ history = model.fit(
     callbacks=callbacks
 )
 
-# 5. Trích xuất Feature Maps từ lớp Conv2D đầu tiên
-# Lấy các lớp Conv2D
 conv_layers = [layer for layer in model.layers if isinstance(layer, layers.Conv2D)]
 
-# Tạo activation model
-# Sử dụng model.input trực tiếp (đã được xác định nhờ layer Input ở cell trước)
 activation_model = models.Model(inputs=model.inputs, outputs=[layer.output for layer in conv_layers])
 
-# Lấy 1 ảnh mẫu từ tập validation
 for images, labels in val_dataset.take(1):
     sample_img = images[0]
     break
 
-# Dự đoán để lấy feature maps
-# model.predict sẽ trả về một danh sách các mảng nếu có nhiều outputs
 img_array = tf.expand_dims(sample_img, 0)
 activations = activation_model.predict(img_array)
 
-# Hiển thị Feature Map của lớp Conv2D đầu tiên
-# activations[0] tương ứng với output của layer Conv2D đầu tiên
 first_layer_activation = activations[0]
 
 plt.figure(figsize=(15, 10))
-for i in range(16): # Hiển thị 16 bộ lọc (channels) đầu tiên
+for i in range(16):
     plt.subplot(4, 4, i+1)
-    # Hiển thị feature map
     plt.imshow(first_layer_activation[0, :, :, i], cmap='viridis')
     plt.axis('off')
 
@@ -215,44 +176,29 @@ plt.show()
 
 print(history.history.keys())
 
-# 6: Evaluate: Plot Training Curves
-# Vẽ biểu đồ Loss và Accuracy
 acc = history.history['accuracy']
 val_acc = history.history['val_accuracy']
 loss = history.history['loss']
 val_loss = history.history['val_loss']
-# auc = history.history['auc']
-# val_auc = history.history['val_auc']
 
 epochs_range = range(len(acc))
 
-plt.figure(figsize=(14, 5)) #21, 5
+plt.figure(figsize=(14, 5))
 
-# Biểu đồ Accuracy
 plt.subplot(1, 2, 1)
 plt.plot(epochs_range, acc, label='Training Accuracy')
 plt.plot(epochs_range, val_acc, label='Validation Accuracy')
 plt.legend(loc='lower right')
 plt.title('Training and Validation Accuracy')
 
-# Biểu đồ Loss
 plt.subplot(1, 2, 2)
 plt.plot(epochs_range, loss, label='Training Loss')
 plt.plot(epochs_range, val_loss, label='Validation Loss')
 plt.legend(loc='upper right')
 plt.title('Training and Validation Loss')
 
-# # Biểu đồ AUC
-# plt.subplot(1, 3, 3)
-# plt.plot(epochs_range, auc, label='Training AUC')
-# plt.plot(epochs_range, val_auc, label='Validation AUC')
-# plt.legend(loc='lower right')
-# plt.title('Training and Validation AUC')
-# plt.show()
+plt.show()
 
-# 7: Confusion Matrix & Classification Report
-# Đánh giá chi tiết model trên từng nhãn thời tiết cụ thể
-# Trích xuất nhãn thực tế và nhãn dự đoán từ tập Validation
 y_true = []
 y_pred_probs = []
 
@@ -265,11 +211,9 @@ for images, labels in val_dataset:
 y_true = np.array(y_true)
 y_pred = np.argmax(y_pred_probs, axis=1)
 
-# In Classification Report
 print("\nBÁO CÁO PHÂN LOẠI (Classification Report):")
 print(classification_report(y_true, y_pred, target_names=class_names))
 
-# Vẽ Confusion Matrix
 cm = confusion_matrix(y_true, y_pred)
 plt.figure(figsize=(10, 8))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
@@ -280,19 +224,16 @@ plt.title('Confusion Matrix')
 plt.show()
 
 def predict_weather(img_path):
-    # Đọc và thay đổi kích thước ảnh
     img = tf.keras.utils.load_img(img_path, target_size=IMG_SIZE)
     img_array = tf.keras.utils.img_to_array(img)
-    img_array = tf.expand_dims(img_array, 0) # Thêm chiều batch
+    img_array = tf.expand_dims(img_array, 0)
 
-    # Dự đoán
     predictions = model.predict(img_array)
-    score = tf.nn.softmax(predictions[0]) # Lấy xác suất
+    score = tf.nn.softmax(predictions[0])
 
     predicted_class = class_names[np.argmax(score)]
     confidence = 100 * np.max(score)
 
-    # Hiển thị ảnh và kết quả
     plt.imshow(img)
     plt.axis('off')
     plt.title(f"Dự đoán: {predicted_class} ({confidence:.2f}%)")
@@ -300,16 +241,6 @@ def predict_weather(img_path):
 
 predict_weather('/content/dataset/dataset/rain/1534.jpg')
 
-# Lưu model định dạng chuẩn của Keras
 final_model_path = '/content/drive/MyDrive/DeepLearning/weather_classification_model.h5'
 model.save(final_model_path)
 print(f"Mô hình đã được lưu tại: {final_model_path}")
-
-"""TÓM TẮT PIPELINE (PIPELINE SUMMARY)
-1. Dữ liệu: Đã load thành công 11 class thời tiết từ Google Drive.
-2. Tiền xử lý: Resize ảnh về 150x150, chuẩn hóa pixel (Rescaling 1./255).
-3. Data Augmentation: Lật, xoay, zoom ngẫu nhiên để khắc phục mất cân bằng dữ liệu (VD: nhãn rainbow).
-4. Kiến trúc CNN: 4 khối Conv2D + MaxPooling, đi kèm Dropout giảm Overfitting.
-5. Đánh giá: Đã xuất biểu đồ Loss/Accuracy, Confusion Matrix và F1-Score chi tiết cho từng lớp.
-6. Lưu trữ: Model được lưu tại Google Drive để sử dụng cho Web/App Deployment.
-"""
