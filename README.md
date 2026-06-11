@@ -40,14 +40,7 @@ Phương pháp **Stacking Ensemble với MLP (Keras)** đã chứng minh đượ
 
 | Phương pháp | Thuật toán Meta-Model | Độ chính xác (Accuracy) | F1-Score (Macro Avg) |
 | :--- | :--- | :---: | :---: |
-| Weighted Voting | Tổng tuyến tính cố định | 79.05% | - |
-| Stacking Ensemble | Decision Tree | 88.36% | 0.89 |
-| Stacking Ensemble | Random Forest | 92.00% | 0.93 |
-| **Stacking Ensemble**| **Mạng nơ-ron MLP (Keras)**| **93.09%** | **0.94** |
-
-## 🚀 Hướng Dẫn Cài Đặt
-
-**1. Clone kho lưu trữ này:**
-```bash
-git clone [https://github.com/your-username/weather-classification-ensemble.git](https://github.com/your-username/weather-classification-ensemble.git)
-cd weather-classification-ensemble
+| Weighted Voting | Tổng tuyến tính cố định | 92.87% | 0.93 |
+| Stacking Ensemble | Decision Tree | 93.82% | 0.95 |
+| Stacking Ensemble | Random Forest | 96.36% | 0.97 |
+| **Stacking Ensemble**| **Mạng nơ-ron MLP (Keras)**| **94.91%** | **0.96** |
