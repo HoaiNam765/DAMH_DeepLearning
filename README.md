@@ -36,7 +36,6 @@ Dữ liệu xác suất từ Level 0 được ghép nối (concatenate) thành v
 * **Multi-Layer Perceptron - MLP** (Mạng nơ-ron Keras với lớp ẩn 32 units, Dropout 0.2)
 
 ## 🏆 Kết Quả Thực Nghiệm
-Phương pháp **Stacking Ensemble với MLP (Keras)** đã chứng minh được sự vượt trội hoàn toàn khi xử lý xuất sắc các mối quan hệ phi tuyến, đạt độ chính xác cao nhất lên tới **93.09%**.
 
 | Phương pháp | Thuật toán Meta-Model | Độ chính xác (Accuracy) | F1-Score (Macro Avg) |
 | :--- | :--- | :---: | :---: |
